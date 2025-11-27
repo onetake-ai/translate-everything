@@ -1,3 +1,7 @@
+// BunnyCDN Proxy Configuration
+// Replace this with your actual BunnyCDN domain
+const BUNNY_PROXY_URL = 'https://deepl-proxy-ps8ra.bunny.run/';
+
 // DeepL supported target languages with their codes
 const DEEPL_TARGET_LANGUAGES = {
     'AR': 'Arabic',
@@ -167,6 +171,28 @@ function showCustomLanguageDropdown(prefix) {
 function attachEventListeners() {
     document.getElementById('apiKey').addEventListener('input', (e) => {
         state.apiKey = e.target.value;
+        
+        // Show which endpoint will be used
+        const endpoint = getDeepLEndpoint(e.target.value);
+        const isFree = endpoint.includes('api-free');
+        const noteEl = document.getElementById('apiEndpointNote');
+        
+        if (e.target.value.trim()) {
+            if (!noteEl) {
+                const note = document.createElement('div');
+                note.id = 'apiEndpointNote';
+                note.className = 'alert alert-info';
+                note.style.marginTop = '0.5rem';
+                note.style.fontSize = '0.875rem';
+                e.target.parentElement.appendChild(note);
+            }
+            document.getElementById('apiEndpointNote').innerHTML = `
+                <strong>API Endpoint:</strong> ${isFree ? 'Free' : 'Pro'} tier detected<br>
+                <small>Using: ${endpoint}</small>
+            `;
+        } else if (noteEl) {
+            noteEl.remove();
+        }
     });
     
     document.getElementById('saveApiKey').addEventListener('change', (e) => {
@@ -331,22 +357,32 @@ function validateVariables(original, translated) {
     return JSON.stringify(origSet) === JSON.stringify(transSet);
 }
 
+// Detect if API key is for Free or Pro tier
+function getDeepLEndpoint(apiKey) {
+    // DeepL Free API keys end with ":fx"
+    if (apiKey.trim().endsWith(':fx')) {
+        return 'https://api-free.deepl.com/v2/translate';
+    }
+    // Pro API keys don't have ":fx" suffix
+    return 'https://api.deepl.com/v2/translate';
+}
+
 // Translate multiple texts using DeepL API (batch translation)
+// Uses BunnyCDN proxy to avoid CORS issues
 async function translateTexts(texts, targetLang, formality) {
     const apiKey = state.apiKey;
-    const url = 'https://api.deepl.com/v2/translate';
     
     const payload = {
+        api_key: apiKey,  // Pass API key to proxy
         text: texts,
         target_lang: targetLang,
         formality: formality
     };
     
     try {
-        const response = await fetch(url, {
+        const response = await fetch(BUNNY_PROXY_URL, {
             method: 'POST',
             headers: {
-                'Authorization': `DeepL-Auth-Key ${apiKey}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload)
@@ -354,12 +390,26 @@ async function translateTexts(texts, targetLang, formality) {
         
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`DeepL API error (${response.status}): ${errorText}`);
+            throw new Error(`Proxy error (${response.status}): ${errorText}`);
         }
         
         const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
         return data.translations.map(t => t.text);
     } catch (error) {
+        // Provide helpful error messages
+        if (error.message.includes('fetch') || error.name === 'TypeError') {
+            throw new Error(`Failed to connect to proxy. Please check:
+1. Your BunnyCDN proxy URL is correct: ${BUNNY_PROXY_URL}
+2. The Edge Script is deployed and active
+3. Your internet connection is stable
+
+Original error: ${error.message}`);
+        }
         throw new Error(`Translation failed: ${error.message}`);
     }
 }
