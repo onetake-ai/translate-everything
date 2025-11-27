@@ -389,7 +389,40 @@
             background: var(--bg-tertiary);
             border-radius: 8px;
             padding: 1rem;
+        }
+
+        .comments-details {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             margin-bottom: 1rem;
+        }
+
+        .comments-summary {
+            padding: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--warning);
+            user-select: none;
+            list-style: none;
+        }
+
+        .comments-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .comments-summary::before {
+            content: '▶ ';
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .comments-details[open] .comments-summary::before {
+            transform: rotate(90deg);
+        }
+
+        .comments-summary:hover {
+            background: var(--bg-tertiary);
         }
 
         .comments-title {
@@ -410,6 +443,46 @@
             margin-bottom: 0.5rem;
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 0.875rem;
+        }
+
+        .preview-container-wrapper {
+            position: relative;
+        }
+
+        .preview-container-scrollable {
+            max-height: 500px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .copy-overlay-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 10;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: all 0.2s;
+        }
+
+        .copy-overlay-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .copy-overlay-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-overlay-btn.copied {
+            background: var(--success);
         }
 
         .spinner {
@@ -522,10 +595,12 @@
             <h2 class="section-title">📋 Step 5: Review Results</h2>
             
             <div id="commentsContainer" class="hidden">
-                <div class="comments-section">
-                    <div class="comments-title">⚠️ Orphaned Keys (exist in L2 but removed from L1):</div>
-                    <ul class="comments-list" id="commentsList"></ul>
-                </div>
+                <details class="comments-details">
+                    <summary class="comments-summary">⚠️ Notes & Warnings</summary>
+                    <div class="comments-section">
+                        <ul class="comments-list" id="commentsList"></ul>
+                    </div>
+                </details>
             </div>
 
             <div id="changesContainer" class="hidden">
@@ -535,13 +610,17 @@
 
             <div class="form-group">
                 <label for="outputJson">Updated L2 JSON:</label>
-                <div class="preview-container">
-                    <pre id="outputJson"></pre>
+                <div class="preview-container-wrapper">
+                    <button id="copyOverlayBtn" class="copy-overlay-btn" title="Copy to clipboard">
+                        📋 Copy
+                    </button>
+                    <div class="preview-container preview-container-scrollable">
+                        <pre id="outputJson"></pre>
+                    </div>
                 </div>
             </div>
 
             <div class="button-group">
-                <button id="copyBtn">📋 Copy to Clipboard</button>
                 <button id="downloadBtn">💾 Download JSON</button>
                 <button id="anotherBtn" class="secondary">🔄 Process Another Language</button>
             </div>
@@ -549,5 +628,11 @@
     </div>
 
     <script src="app.js"></script>
+    <footer>
+            <p>This app allows you to update a single i18n file, and have the changes be reflected in all the other languages.</p>
+            <p>Your DeepL API key is never stored on any server and is used only to make requests directly from your browser (a proxy is used to avoid CORS issues but does not store any data).</p>
+            <p>This is a non-commercial personal project from <a href="https://www.onetake.ai/team/sebastien-night" target="_blank">Sébastien Night</a>.</p>
+            <p>The code is open source and MIT-licensed: <a href="https://github.com/onetake-ai/hackernews-watercooler/tree/main" target="_blank">GitHub Repository</a>.</p>
+        </footer>
 </body>
 </html>
