@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="The Pritish Lifesaving Translator 3000 - Translate updated JSON language files using DeepL">
+    <meta name="theme-color" content="#2563eb">
+    <title>The Pritish Lifesaving Translator 3000</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="https://express.onetake.ai/logos/one-take-white-background-152X152.png">
+    <link rel="apple-touch-icon" href="https://express.onetake.ai/logos/one-take-white-background-152X152.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --bg-tertiary: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #d1d5db;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --code-bg: #1f2937;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #111827;
+                --bg-secondary: #1f2937;
+                --bg-tertiary: #374151;
+                --text-primary: #f9fafb;
+                --text-secondary: #9ca3af;
+                --border-color: #4b5563;
+                --shadow: rgba(0, 0, 0, 0.3);
+                --code-bg: #0f172a;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        input[type="text"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        textarea {
+            min-height: 200px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            cursor: pointer;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.875rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        button.secondary:hover:not(:disabled) {
+            background: var(--border-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .alert-info {
+            background: rgba(37, 99, 235, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .progress-container {
+            margin: 1.5rem 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            margin-top: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .preview-container {
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        .preview-container pre {
+            margin: 0;
+            color: #e5e7eb;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .comparison-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .comparison-key {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .comparison-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .comparison-old,
+        .comparison-new {
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .comparison-old {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid var(--error);
+        }
+
+        .comparison-new {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid var(--success);
+        }
+
+        .comparison-label {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+            opacity: 0.7;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .language-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .language-option {
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            background: var(--bg-primary);
+        }
+
+        .language-option:hover {
+            border-color: var(--accent);
+        }
+
+        .language-option.selected {
+            border-color: var(--accent);
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .radio-option input[type="radio"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem 0.5rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .comparison-values {
+                grid-template-columns: 1fr;
+            }
+
+            .language-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .comments-section {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .comments-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--warning);
+        }
+
+        .comments-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .comments-list li {
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="https://express.onetake.ai/logos/one-take-white-background-152X152.png" alt="Logo" class="logo">
+            <h1>The Pritish Lifesaving Translator 3000</h1>
+            <p class="subtitle">Translate updated JSON language files with DeepL</p>
+        </header>
+
+        <!-- Step 1: DeepL API Configuration -->
+        <div class="section" id="step1">
+            <h2 class="section-title">🔑 Step 1: DeepL API Configuration</h2>
+            <div class="form-group">
+                <label for="apiKey">DeepL API Key (Pro)</label>
+                <input type="password" id="apiKey" placeholder="Enter your DeepL API key">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="saveApiKey">
+                    <label for="saveApiKey" style="margin-bottom: 0;">Save API key in local storage</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Source Language Configuration -->
+        <div class="section" id="step2">
+            <h2 class="section-title">🌍 Step 2: Source Language (L1) - Updated Language</h2>
+            <div class="form-group">
+                <label>Select the language you updated:</label>
+                <div class="language-grid" id="l1LanguageGrid"></div>
+                <div class="form-group" id="l1CustomContainer" style="display: none;">
+                    <label for="l1Custom">Or specify another language:</label>
+                    <select id="l1Custom"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="diffFile">Paste your GitLab DIFF file:</label>
+                <textarea id="diffFile" placeholder="Paste the diff content here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Step 3: Target Language Configuration -->
+        <div class="section" id="step3">
+            <h2 class="section-title">🎯 Step 3: Target Language (L2) - Language to Update</h2>
+            <div class="form-group">
+                <label>Select the target language:</label>
+                <div class="language-grid" id="l2LanguageGrid"></div>
+                <div class="form-group" id="l2CustomContainer" style="display: none;">
+                    <label for="l2Custom">Or specify another language:</label>
+                    <select id="l2Custom"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Translation Formality:</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="formalityDefault" name="formality" value="default">
+                        <label for="formalityDefault" style="margin-bottom: 0;">Automatic</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="formalityLess" name="formality" value="less" checked>
+                        <label for="formalityLess" style="margin-bottom: 0;">Informal</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="formalityMore" name="formality" value="more">
+                        <label for="formalityMore" style="margin-bottom: 0;">Formal</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="l2Json">Paste current L2 JSON:</label>
+                <textarea id="l2Json" placeholder="Paste the current JSON for the target language..."></textarea>
+            </div>
+        </div>
+
+        <!-- Step 4: Process -->
+        <div class="section" id="step4">
+            <h2 class="section-title">⚙️ Step 4: Process Translation</h2>
+            <div id="alerts"></div>
+            <div class="button-group">
+                <button id="processBtn">
+                    <span>Start Translation</span>
+                </button>
+                <button id="resetBtn" class="secondary">Reset All</button>
+            </div>
+            <div id="progressContainer" class="progress-container hidden">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText"></div>
+            </div>
+        </div>
+
+        <!-- Step 5: Results -->
+        <div class="section hidden" id="step5">
+            <h2 class="section-title">📋 Step 5: Review Results</h2>
+            
+            <div id="commentsContainer" class="hidden">
+                <div class="comments-section">
+                    <div class="comments-title">⚠️ Orphaned Keys (exist in L2 but removed from L1):</div>
+                    <ul class="comments-list" id="commentsList"></ul>
+                </div>
+            </div>
+
+            <div id="changesContainer" class="hidden">
+                <h3 style="margin-bottom: 1rem;">Changes Preview:</h3>
+                <div id="changesList"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="outputJson">Updated L2 JSON:</label>
+                <div class="preview-container">
+                    <pre id="outputJson"></pre>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="copyBtn">📋 Copy to Clipboard</button>
+                <button id="downloadBtn">💾 Download JSON</button>
+                <button id="anotherBtn" class="secondary">🔄 Process Another Language</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
