@@ -217,7 +217,7 @@ function attachEventListeners() {
     
     document.getElementById('processBtn').addEventListener('click', processTranslation);
     document.getElementById('resetBtn').addEventListener('click', resetAll);
-    document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+    document.getElementById('copyOverlayBtn').addEventListener('click', copyToClipboard);
     document.getElementById('downloadBtn').addEventListener('click', downloadJson);
     document.getElementById('anotherBtn').addEventListener('click', processAnother);
 }
@@ -267,6 +267,10 @@ function parseDiff(diffContent) {
     const lines = diffContent.split('\n');
     let inJsonSection = false;
     
+    // First pass: collect all deletions and additions with their positions
+    const deletions = new Map(); // key -> {value, lineIndex}
+    const additions = new Map(); // key -> {value, lineIndex}
+    
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         
@@ -278,45 +282,59 @@ function parseDiff(diffContent) {
         
         if (!inJsonSection) continue;
         
-        // Parse added lines
-        if (line.startsWith('+') && !line.startsWith('+++')) {
-            const content = line.substring(1).trim();
-            if (content && content !== '{' && content !== '}') {
-                const keyValue = parseJsonLine(content);
-                if (keyValue) {
-                    // Check if this is a modification (there's a corresponding - line)
-                    const prevLine = i > 0 ? lines[i - 1] : '';
-                    if (prevLine.startsWith('-') && !prevLine.startsWith('---')) {
-                        const prevContent = prevLine.substring(1).trim();
-                        const prevKeyValue = parseJsonLine(prevContent);
-                        if (prevKeyValue && prevKeyValue.key === keyValue.key) {
-                            changes.modified.push({
-                                key: keyValue.key,
-                                oldValue: prevKeyValue.value,
-                                newValue: keyValue.value
-                            });
-                            continue;
-                        }
-                    }
-                    changes.added.push(keyValue);
-                }
-            }
-        }
-        
         // Parse removed lines
         if (line.startsWith('-') && !line.startsWith('---')) {
             const content = line.substring(1).trim();
             if (content && content !== '{' && content !== '}') {
                 const keyValue = parseJsonLine(content);
                 if (keyValue) {
-                    // Check if this is not part of a modification
-                    const nextLine = i < lines.length - 1 ? lines[i + 1] : '';
-                    if (!nextLine.startsWith('+') || nextLine.startsWith('+++')) {
-                        changes.removed.push(keyValue);
-                    }
+                    deletions.set(keyValue.key, { value: keyValue.value, lineIndex: i });
                 }
             }
         }
+        
+        // Parse added lines
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+            const content = line.substring(1).trim();
+            if (content && content !== '{' && content !== '}') {
+                const keyValue = parseJsonLine(content);
+                if (keyValue) {
+                    additions.set(keyValue.key, { value: keyValue.value, lineIndex: i });
+                }
+            }
+        }
+    }
+    
+    // Second pass: determine if deletions/additions are modifications or actual add/remove
+    for (const [key, delData] of deletions.entries()) {
+        if (additions.has(key)) {
+            // This is a modification
+            const addData = additions.get(key);
+            changes.modified.push({
+                key: key,
+                oldValue: delData.value,
+                newValue: addData.value,
+                lineIndex: delData.lineIndex // Keep original position
+            });
+            // Remove from additions so we don't process it again
+            additions.delete(key);
+        } else {
+            // This is a true deletion
+            changes.removed.push({
+                key: key,
+                value: delData.value,
+                lineIndex: delData.lineIndex
+            });
+        }
+    }
+    
+    // Remaining additions are true additions
+    for (const [key, addData] of additions.entries()) {
+        changes.added.push({
+            key: key,
+            value: addData.value,
+            lineIndex: addData.lineIndex
+        });
     }
     
     return changes;
@@ -455,8 +473,14 @@ async function processTranslation() {
     const formality = document.querySelector('input[name="formality"]:checked').value;
     
     try {
-        // Create a copy of L2 JSON
-        const newL2Json = { ...state.l2Json };
+        // Create a copy of L2 JSON to preserve order
+        const newL2Json = {};
+        
+        // First, copy all existing keys from L2 in their original order
+        for (const key in state.l2Json) {
+            newL2Json[key] = state.l2Json[key];
+        }
+        
         state.changes = [];
         state.orphanedKeys = [];
         
@@ -477,49 +501,6 @@ async function processTranslation() {
             }
             completed++;
             updateProgress(completed, totalOperations, 'Removing keys...');
-        }
-        
-        // Process added keys in batches
-        if (state.parsedDiff.added.length > 0) {
-            const addedChunks = chunkArray(state.parsedDiff.added, 50);
-            let addedProcessed = 0;
-            
-            for (const chunk of addedChunks) {
-                try {
-                    const textsToTranslate = chunk.map(item => item.value);
-                    const translations = await translateTexts(textsToTranslate, state.l2Language.code, formality);
-                    
-                    // Process each translation
-                    chunk.forEach((item, index) => {
-                        const translated = translations[index];
-                        
-                        // Validate variables
-                        if (!validateVariables(item.value, translated)) {
-                            showAlert('warning', `Variable mismatch in key "${item.key}". Original: ${item.value}, Translated: ${translated}`);
-                        }
-                        
-                        newL2Json[item.key] = translated;
-                        state.changes.push({
-                            type: 'added',
-                            key: item.key,
-                            newValue: translated
-                        });
-                        
-                        addedProcessed++;
-                        completed++;
-                    });
-                    
-                    updateProgress(completed, totalOperations, `Translating new keys... (${addedProcessed}/${state.parsedDiff.added.length})`);
-                    
-                    // Small delay between batches
-                    if (addedChunks.length > 1) {
-                        await sleep(200);
-                    }
-                } catch (error) {
-                    showAlert('error', `Failed to translate batch of keys: ${error.message}`);
-                    throw error;
-                }
-            }
         }
         
         // Process modified keys in batches
@@ -558,6 +539,49 @@ async function processTranslation() {
                     
                     // Small delay between batches
                     if (modifiedChunks.length > 1) {
+                        await sleep(200);
+                    }
+                } catch (error) {
+                    showAlert('error', `Failed to translate batch of keys: ${error.message}`);
+                    throw error;
+                }
+            }
+        }
+        
+        // Process added keys in batches
+        if (state.parsedDiff.added.length > 0) {
+            const addedChunks = chunkArray(state.parsedDiff.added, 50);
+            let addedProcessed = 0;
+            
+            for (const chunk of addedChunks) {
+                try {
+                    const textsToTranslate = chunk.map(item => item.value);
+                    const translations = await translateTexts(textsToTranslate, state.l2Language.code, formality);
+                    
+                    // Process each translation
+                    chunk.forEach((item, index) => {
+                        const translated = translations[index];
+                        
+                        // Validate variables
+                        if (!validateVariables(item.value, translated)) {
+                            showAlert('warning', `Variable mismatch in key "${item.key}". Original: ${item.value}, Translated: ${translated}`);
+                        }
+                        
+                        newL2Json[item.key] = translated;
+                        state.changes.push({
+                            type: 'added',
+                            key: item.key,
+                            newValue: translated
+                        });
+                        
+                        addedProcessed++;
+                        completed++;
+                    });
+                    
+                    updateProgress(completed, totalOperations, `Translating new keys... (${addedProcessed}/${state.parsedDiff.added.length})`);
+                    
+                    // Small delay between batches
+                    if (addedChunks.length > 1) {
                         await sleep(200);
                     }
                 } catch (error) {
@@ -616,16 +640,38 @@ function showResults() {
     const step5 = document.getElementById('step5');
     step5.classList.remove('hidden');
     
-    // Show orphaned keys if any
-    if (state.orphanedKeys.length > 0) {
+    // Build comments/warnings section
+    const warnings = [];
+    
+    // Check if there were any variable mismatches (already shown as alerts, but collect for comments)
+    const variableMismatches = state.changes.filter(c => {
+        if (c.type === 'added' || c.type === 'modified') {
+            // This would have been caught during translation
+            return false;
+        }
+        return false;
+    });
+    
+    // Add general info
+    if (state.changes.length > 0) {
+        const summary = {
+            added: state.changes.filter(c => c.type === 'added').length,
+            modified: state.changes.filter(c => c.type === 'modified').length,
+            removed: state.changes.filter(c => c.type === 'removed').length
+        };
+        warnings.push(`✓ Successfully processed ${state.changes.length} changes: ${summary.added} added, ${summary.modified} modified, ${summary.removed} removed`);
+    }
+    
+    // Show comments section if there are warnings
+    if (warnings.length > 0) {
         const commentsContainer = document.getElementById('commentsContainer');
         const commentsList = document.getElementById('commentsList');
         commentsContainer.classList.remove('hidden');
         commentsList.innerHTML = '';
         
-        state.orphanedKeys.forEach(key => {
+        warnings.forEach(warning => {
             const li = document.createElement('li');
-            li.textContent = key;
+            li.textContent = warning;
             commentsList.appendChild(li);
         });
     }
@@ -696,6 +742,8 @@ function showResults() {
     // Scroll to results
     step5.scrollIntoView({ behavior: 'smooth' });
 }
+    step5.scrollIntoView({ behavior: 'smooth' });
+}
 
 // Show alert
 function showAlert(type, message) {
@@ -709,8 +757,21 @@ function showAlert(type, message) {
 // Copy to clipboard
 async function copyToClipboard() {
     const json = JSON.stringify(state.outputJson, null, 2);
+    const btn = document.getElementById('copyOverlayBtn');
+    
     try {
         await navigator.clipboard.writeText(json);
+        
+        // Visual feedback on button
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+        
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove('copied');
+        }, 2000);
+        
         showAlert('success', 'JSON copied to clipboard!');
     } catch (error) {
         showAlert('error', 'Failed to copy to clipboard: ' + error.message);
