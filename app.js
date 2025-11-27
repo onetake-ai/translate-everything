@@ -742,8 +742,6 @@ function showResults() {
     // Scroll to results
     step5.scrollIntoView({ behavior: 'smooth' });
 }
-    step5.scrollIntoView({ behavior: 'smooth' });
-}
 
 // Show alert
 function showAlert(type, message) {
