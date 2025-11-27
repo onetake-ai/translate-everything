@@ -331,25 +331,25 @@ function validateVariables(original, translated) {
     return JSON.stringify(origSet) === JSON.stringify(transSet);
 }
 
-// Translate text using DeepL API
-async function translateText(text, targetLang, formality) {
+// Translate multiple texts using DeepL API (batch translation)
+async function translateTexts(texts, targetLang, formality) {
     const apiKey = state.apiKey;
     const url = 'https://api.deepl.com/v2/translate';
     
-    const params = new URLSearchParams({
-        auth_key: apiKey,
-        text: text,
+    const payload = {
+        text: texts,
         target_lang: targetLang,
         formality: formality
-    });
+    };
     
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `DeepL-Auth-Key ${apiKey}`,
+                'Content-Type': 'application/json',
             },
-            body: params
+            body: JSON.stringify(payload)
         });
         
         if (!response.ok) {
@@ -358,10 +358,19 @@ async function translateText(text, targetLang, formality) {
         }
         
         const data = await response.json();
-        return data.translations[0].text;
+        return data.translations.map(t => t.text);
     } catch (error) {
         throw new Error(`Translation failed: ${error.message}`);
     }
+}
+
+// Helper function to split array into chunks
+function chunkArray(array, size) {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
 }
 
 // Process the translation
@@ -420,61 +429,91 @@ async function processTranslation() {
             updateProgress(completed, totalOperations, 'Removing keys...');
         }
         
-        // Process added keys
-        for (const item of state.parsedDiff.added) {
-            try {
-                const translated = await translateText(item.value, state.l2Language.code, formality);
-                
-                // Validate variables
-                if (!validateVariables(item.value, translated)) {
-                    showAlert('warning', `Variable mismatch in key "${item.key}". Original: ${item.value}, Translated: ${translated}`);
+        // Process added keys in batches
+        if (state.parsedDiff.added.length > 0) {
+            const addedChunks = chunkArray(state.parsedDiff.added, 50);
+            let addedProcessed = 0;
+            
+            for (const chunk of addedChunks) {
+                try {
+                    const textsToTranslate = chunk.map(item => item.value);
+                    const translations = await translateTexts(textsToTranslate, state.l2Language.code, formality);
+                    
+                    // Process each translation
+                    chunk.forEach((item, index) => {
+                        const translated = translations[index];
+                        
+                        // Validate variables
+                        if (!validateVariables(item.value, translated)) {
+                            showAlert('warning', `Variable mismatch in key "${item.key}". Original: ${item.value}, Translated: ${translated}`);
+                        }
+                        
+                        newL2Json[item.key] = translated;
+                        state.changes.push({
+                            type: 'added',
+                            key: item.key,
+                            newValue: translated
+                        });
+                        
+                        addedProcessed++;
+                        completed++;
+                    });
+                    
+                    updateProgress(completed, totalOperations, `Translating new keys... (${addedProcessed}/${state.parsedDiff.added.length})`);
+                    
+                    // Small delay between batches
+                    if (addedChunks.length > 1) {
+                        await sleep(200);
+                    }
+                } catch (error) {
+                    showAlert('error', `Failed to translate batch of keys: ${error.message}`);
+                    throw error;
                 }
-                
-                newL2Json[item.key] = translated;
-                state.changes.push({
-                    type: 'added',
-                    key: item.key,
-                    newValue: translated
-                });
-                
-                completed++;
-                updateProgress(completed, totalOperations, `Translating new keys... (${completed}/${state.parsedDiff.added.length})`);
-                
-                // Small delay to avoid rate limiting
-                await sleep(100);
-            } catch (error) {
-                showAlert('error', `Failed to translate key "${item.key}": ${error.message}`);
-                throw error;
             }
         }
         
-        // Process modified keys
-        for (const item of state.parsedDiff.modified) {
-            try {
-                const translated = await translateText(item.newValue, state.l2Language.code, formality);
-                
-                // Validate variables
-                if (!validateVariables(item.newValue, translated)) {
-                    showAlert('warning', `Variable mismatch in key "${item.key}". Original: ${item.newValue}, Translated: ${translated}`);
+        // Process modified keys in batches
+        if (state.parsedDiff.modified.length > 0) {
+            const modifiedChunks = chunkArray(state.parsedDiff.modified, 50);
+            let modifiedProcessed = 0;
+            
+            for (const chunk of modifiedChunks) {
+                try {
+                    const textsToTranslate = chunk.map(item => item.newValue);
+                    const translations = await translateTexts(textsToTranslate, state.l2Language.code, formality);
+                    
+                    // Process each translation
+                    chunk.forEach((item, index) => {
+                        const translated = translations[index];
+                        
+                        // Validate variables
+                        if (!validateVariables(item.newValue, translated)) {
+                            showAlert('warning', `Variable mismatch in key "${item.key}". Original: ${item.newValue}, Translated: ${translated}`);
+                        }
+                        
+                        const oldValue = newL2Json[item.key];
+                        newL2Json[item.key] = translated;
+                        state.changes.push({
+                            type: 'modified',
+                            key: item.key,
+                            oldValue: oldValue,
+                            newValue: translated
+                        });
+                        
+                        modifiedProcessed++;
+                        completed++;
+                    });
+                    
+                    updateProgress(completed, totalOperations, `Updating modified keys... (${modifiedProcessed}/${state.parsedDiff.modified.length})`);
+                    
+                    // Small delay between batches
+                    if (modifiedChunks.length > 1) {
+                        await sleep(200);
+                    }
+                } catch (error) {
+                    showAlert('error', `Failed to translate batch of keys: ${error.message}`);
+                    throw error;
                 }
-                
-                const oldValue = newL2Json[item.key];
-                newL2Json[item.key] = translated;
-                state.changes.push({
-                    type: 'modified',
-                    key: item.key,
-                    oldValue: oldValue,
-                    newValue: translated
-                });
-                
-                completed++;
-                updateProgress(completed, totalOperations, `Updating modified keys... (${completed - state.parsedDiff.added.length}/${state.parsedDiff.modified.length})`);
-                
-                // Small delay to avoid rate limiting
-                await sleep(100);
-            } catch (error) {
-                showAlert('error', `Failed to translate key "${item.key}": ${error.message}`);
-                throw error;
             }
         }
         
