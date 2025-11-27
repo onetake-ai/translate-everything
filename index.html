@@ -498,6 +498,34 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 2rem 1rem;
+            margin-top: 4rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        footer p {
+            margin: 0.75rem auto;
+            max-width: 800px;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -604,8 +632,10 @@
             </div>
 
             <div id="changesContainer" class="hidden">
-                <h3 style="margin-bottom: 1rem;">Changes Preview:</h3>
-                <div id="changesList"></div>
+                <details class="comments-details" open>
+                    <summary class="comments-summary">📝 Changes Preview</summary>
+                    <div id="changesList"></div>
+                </details>
             </div>
 
             <div class="form-group">
@@ -627,12 +657,13 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
     <footer>
-            <p>This app allows you to update a single i18n file, and have the changes be reflected in all the other languages.</p>
-            <p>Your DeepL API key is never stored on any server and is used only to make requests directly from your browser (a proxy is used to avoid CORS issues but does not store any data).</p>
-            <p>This is a non-commercial personal project from <a href="https://www.onetake.ai/team/sebastien-night" target="_blank">Sébastien Night</a>.</p>
-            <p>The code is open source and MIT-licensed: <a href="https://github.com/onetake-ai/hackernews-watercooler/tree/main" target="_blank">GitHub Repository</a>.</p>
-        </footer>
+        <p>This app allows you to update a single i18n file, and have the changes be reflected in all the other languages.</p>
+        <p>Your DeepL API key is never stored on any server and is used only to make requests directly from your browser (a proxy is used to avoid CORS issues but does not store any data; you can replace it with your own proxy).</p>
+        <p>This is a non-commercial personal project from <a href="https://www.onetake.ai/team/sebastien-night" target="_blank">Sébastien Night</a>.</p>
+        <p>The code is open source and MIT-licensed: <a href="https://github.com/onetake-ai/translate-everything/" target="_blank">GitHub Repository</a>.</p>
+    </footer>
+
+    <script src="app.js"></script>
 </body>
 </html>
