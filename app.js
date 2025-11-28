@@ -390,11 +390,16 @@ function getDeepLEndpoint(apiKey) {
 async function translateTexts(texts, targetLang, formality) {
     const apiKey = state.apiKey;
     
+    // Build context from all texts to improve consistency
+    // This helps DeepL understand recurring terms and maintain consistent translations
+    const context = texts.join('\n');
+    
     const payload = {
         api_key: apiKey,  // Pass API key to proxy
         text: texts,
         target_lang: targetLang,
-        formality: formality
+        formality: formality,
+        context: context  // Add context for translation consistency
     };
     
     try {
